@@ -18,7 +18,7 @@ Canonical spec: `ARCHITECTURE.md` (+ `specs/mvp.md`).
 
 ## Tasks (highest priority first; each checkbox should be doable in ONE build iteration)
 - [x] Scaffold Node/TS CLI repo: `package.json`, `tsconfig.json`, `src/` skeleton, and a `hadrix-flow --help` CLI stub.
-- [ ] Add validation wiring: `npm test` + `npm run typecheck` scripts (choose a test runner) and a single smoke test.
+- [x] Add validation wiring: `npm test` + `npm run typecheck` scripts (choose a test runner) and a single smoke test.
 - [ ] Add determinism helpers: stable comparators/sorts, canonical JSON stringify, and a hashing helper (with unit tests).
 - [ ] Define core IDs: `FuncId`, `StmtId`, `CallsiteId`, `VarId`, `HeapId` with deterministic parse/stringify/compare (with unit tests).
 - [ ] Add a tiny TS fixture repo under `test/fixtures/basic/` (own `tsconfig.json`, a few functions/calls; no external deps).

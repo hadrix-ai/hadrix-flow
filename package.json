@@ -10,6 +10,8 @@
   },
   "scripts": {
     "dev": "node src/cli.ts",
-    "build": "node scripts/build.ts"
+    "build": "node scripts/build.ts",
+    "test": "node --test",
+    "typecheck": "node --check src/cli.ts scripts/build.ts"
   }
 }
