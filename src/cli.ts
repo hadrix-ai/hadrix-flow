@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 import { readFileSync, writeFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import ts from "typescript";
+import { resolve } from "node:path";
+
+import { loadTsProject } from "./ts_project.ts";
 
 function getVersion(): string {
   try {
@@ -106,27 +107,6 @@ function parseAnalyzeArgs(argv: string[]): AnalyzeArgs {
   return args;
 }
 
-function loadTsProgramFromTsconfig(tsconfigPath: string): ts.Program {
-  const diagHost: ts.FormatDiagnosticsHost = {
-    getCanonicalFileName: (p) => p,
-    getCurrentDirectory: ts.sys.getCurrentDirectory,
-    getNewLine: () => ts.sys.newLine,
-  };
-
-  const configFile = ts.readConfigFile(tsconfigPath, ts.sys.readFile);
-  if (configFile.error) {
-    throw new Error(ts.formatDiagnostics([configFile.error], diagHost));
-  }
-
-  const parsed = ts.parseJsonConfigFileContent(configFile.config, ts.sys, dirname(tsconfigPath), undefined, tsconfigPath);
-  if (parsed.errors.length > 0) {
-    throw new Error(ts.formatDiagnostics(parsed.errors, diagHost));
-  }
-
-  // Use the classic signature for broad compatibility across TS versions.
-  return ts.createProgram(parsed.fileNames, parsed.options, undefined, undefined, undefined, parsed.projectReferences);
-}
-
 function cmdAnalyze(argv: string[], version: string): number {
   let args: AnalyzeArgs;
   try {
@@ -148,24 +128,20 @@ function cmdAnalyze(argv: string[], version: string): number {
     return 1;
   }
 
-  const tsconfigPath = args.tsconfig
-    ? resolve(args.tsconfig)
-    : args.repo
-      ? resolve(args.repo, "tsconfig.json")
-      : undefined;
-  if (!tsconfigPath) {
+  if (!args.repo && !args.tsconfig) {
     process.stderr.write("hadrix-flow analyze: expected --repo <path> or --tsconfig <file>\n");
     return 1;
   }
 
   try {
-    const program = loadTsProgramFromTsconfig(tsconfigPath);
+    const project = loadTsProject({ repo: args.repo, tsconfig: args.tsconfig });
+    const program = project.program;
     // Force the program to realize sources and types.
     void program.getSourceFiles();
     void program.getTypeChecker();
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    process.stderr.write(`hadrix-flow analyze: failed to load TS program from ${JSON.stringify(tsconfigPath)}\n${msg}\n`);
+    process.stderr.write(`hadrix-flow analyze: failed to load TS project\n${msg}\n`);
     return 1;
   }
 
