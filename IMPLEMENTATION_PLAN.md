@@ -25,7 +25,7 @@ Canonical spec: `ARCHITECTURE.md` (+ `specs/mvp.md`).
 - [x] Implement `analyze` command skeleton that loads a TS `Program` and emits an empty-but-valid facts JSONL file (deterministic ordering).
 - [x] Implement TS project loader: resolve `--repo` and/or `--tsconfig`, normalize to repo-relative file paths, and produce a stable source-file list.
 - [x] Implement function indexer: collect function-like nodes, assign stable `FuncId=(filePath,startOffset,endOffset)`, and expose lookup by span.
-- [ ] Implement statement indexer: per-function linear statement list with stable `StmtId=FuncId+statementIndex` rules (documented in code/tests).
+- [x] Implement statement indexer: per-function linear statement list with stable `StmtId=FuncId+statementIndex` rules (documented in code/tests).
 - [ ] Implement callsite indexer: enumerate call expressions per function, assign `CallsiteId` (aligned to `StmtId`), and record callsite spans.
 - [ ] Define per-function IR schema + normalizer + stable IR serialization (unit tests; no builder yet).
 - [ ] Implement stable IR hashing (hash of normalized IR + analysis config version) and a unit test for stability.
