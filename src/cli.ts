@@ -1,5 +1,7 @@
 #!/usr/bin/env node
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import ts from "typescript";
 
 function getVersion(): string {
   try {
@@ -19,16 +21,157 @@ function helpText(version: string): string {
     "Deterministic JS/TS flow-fact generator (infrastructure, not a vulnerability scanner).",
     "",
     "Usage:",
-    "  hadrix-flow analyze --repo <path> --jelly <file> --out <facts.jsonl> [--witness <witness.jsonl>] [--explain <dir>]",
+    "  hadrix-flow analyze (--repo <path> | --tsconfig <file>) --out <facts.jsonl> [--jelly <file>] [--witness <witness.jsonl>] [--explain <dir>]",
     "",
     "Commands:",
-    "  analyze    Generate flow facts (not implemented yet)",
+    "  analyze    Generate flow facts (skeleton; emits empty facts for now)",
     "",
     "Options:",
     "  -h, --help     Show help",
     "      --version  Show version",
     "",
   ].join("\n");
+}
+
+type AnalyzeArgs = Readonly<{
+  repo?: string;
+  tsconfig?: string;
+  jelly?: string;
+  out?: string;
+  witness?: string;
+  explain?: string;
+  help: boolean;
+}>;
+
+function parseAnalyzeArgs(argv: string[]): AnalyzeArgs {
+  const args: {
+    repo?: string;
+    tsconfig?: string;
+    jelly?: string;
+    out?: string;
+    witness?: string;
+    explain?: string;
+    help: boolean;
+  } = { help: false };
+
+  const takeValue = (flag: string, i: number): string => {
+    const v = argv[i + 1];
+    if (typeof v !== "string" || v.startsWith("-")) {
+      throw new Error(`${flag} requires a value`);
+    }
+    return v;
+  };
+
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i]!;
+    if (a === "--help" || a === "-h") {
+      args.help = true;
+      continue;
+    }
+
+    if (a === "--repo") {
+      args.repo = takeValue(a, i);
+      i++;
+      continue;
+    }
+    if (a === "--tsconfig") {
+      args.tsconfig = takeValue(a, i);
+      i++;
+      continue;
+    }
+    if (a === "--jelly") {
+      args.jelly = takeValue(a, i);
+      i++;
+      continue;
+    }
+    if (a === "--out") {
+      args.out = takeValue(a, i);
+      i++;
+      continue;
+    }
+    if (a === "--witness") {
+      args.witness = takeValue(a, i);
+      i++;
+      continue;
+    }
+    if (a === "--explain") {
+      args.explain = takeValue(a, i);
+      i++;
+      continue;
+    }
+
+    throw new Error(`Unknown option: ${a}`);
+  }
+
+  return args;
+}
+
+function loadTsProgramFromTsconfig(tsconfigPath: string): ts.Program {
+  const diagHost: ts.FormatDiagnosticsHost = {
+    getCanonicalFileName: (p) => p,
+    getCurrentDirectory: ts.sys.getCurrentDirectory,
+    getNewLine: () => ts.sys.newLine,
+  };
+
+  const configFile = ts.readConfigFile(tsconfigPath, ts.sys.readFile);
+  if (configFile.error) {
+    throw new Error(ts.formatDiagnostics([configFile.error], diagHost));
+  }
+
+  const parsed = ts.parseJsonConfigFileContent(configFile.config, ts.sys, dirname(tsconfigPath), undefined, tsconfigPath);
+  if (parsed.errors.length > 0) {
+    throw new Error(ts.formatDiagnostics(parsed.errors, diagHost));
+  }
+
+  // Use the classic signature for broad compatibility across TS versions.
+  return ts.createProgram(parsed.fileNames, parsed.options, undefined, undefined, undefined, parsed.projectReferences);
+}
+
+function cmdAnalyze(argv: string[], version: string): number {
+  let args: AnalyzeArgs;
+  try {
+    args = parseAnalyzeArgs(argv);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    process.stderr.write(`hadrix-flow analyze: ${msg}\n\n`);
+    process.stdout.write(helpText(version));
+    return 1;
+  }
+
+  if (args.help) {
+    process.stdout.write(helpText(version));
+    return 0;
+  }
+
+  if (!args.out) {
+    process.stderr.write("hadrix-flow analyze: missing required --out <facts.jsonl>\n");
+    return 1;
+  }
+
+  const tsconfigPath = args.tsconfig
+    ? resolve(args.tsconfig)
+    : args.repo
+      ? resolve(args.repo, "tsconfig.json")
+      : undefined;
+  if (!tsconfigPath) {
+    process.stderr.write("hadrix-flow analyze: expected --repo <path> or --tsconfig <file>\n");
+    return 1;
+  }
+
+  try {
+    const program = loadTsProgramFromTsconfig(tsconfigPath);
+    // Force the program to realize sources and types.
+    void program.getSourceFiles();
+    void program.getTypeChecker();
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    process.stderr.write(`hadrix-flow analyze: failed to load TS program from ${JSON.stringify(tsconfigPath)}\n${msg}\n`);
+    return 1;
+  }
+
+  // Placeholder: write an empty JSONL file (no facts) deterministically.
+  writeFileSync(resolve(args.out), "", "utf8");
+  return 0;
 }
 
 function main(argv: string[]): number {
@@ -46,8 +189,7 @@ function main(argv: string[]): number {
 
   const [command] = argv;
   if (command === "analyze") {
-    process.stderr.write("hadrix-flow analyze: not implemented yet (CLI stub)\n");
-    return 1;
+    return cmdAnalyze(argv.slice(1), version);
   }
 
   process.stderr.write(`Unknown command: ${command}\n\n`);
@@ -56,4 +198,3 @@ function main(argv: string[]): number {
 }
 
 process.exitCode = main(process.argv.slice(2));
-

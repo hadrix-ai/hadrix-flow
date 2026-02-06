@@ -22,7 +22,7 @@ Canonical spec: `ARCHITECTURE.md` (+ `specs/mvp.md`).
 - [x] Add determinism helpers: stable comparators/sorts, canonical JSON stringify, and a hashing helper (with unit tests).
 - [x] Define core IDs: `FuncId`, `StmtId`, `CallsiteId`, `VarId`, `HeapId` with deterministic parse/stringify/compare (with unit tests).
 - [x] Add a tiny TS fixture repo under `test/fixtures/basic/` (own `tsconfig.json`, a few functions/calls; no external deps).
-- [ ] Implement `analyze` command skeleton that loads a TS `Program` and emits an empty-but-valid facts JSONL file (deterministic ordering).
+- [x] Implement `analyze` command skeleton that loads a TS `Program` and emits an empty-but-valid facts JSONL file (deterministic ordering).
 - [ ] Implement TS project loader: resolve `--repo` and/or `--tsconfig`, normalize to repo-relative file paths, and produce a stable source-file list.
 - [ ] Implement function indexer: collect function-like nodes, assign stable `FuncId=(filePath,startOffset,endOffset)`, and expose lookup by span.
 - [ ] Implement statement indexer: per-function linear statement list with stable `StmtId=FuncId+statementIndex` rules (documented in code/tests).

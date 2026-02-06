@@ -13,5 +13,8 @@
     "build": "node scripts/build.ts",
     "test": "node --test test/*.test.js",
     "typecheck": "node --check src/cli.ts scripts/build.ts"
+  },
+  "dependencies": {
+    "typescript": "5.9.3"
   }
 }
