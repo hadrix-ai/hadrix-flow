@@ -27,7 +27,7 @@ Canonical spec: `ARCHITECTURE.md` (+ `specs/mvp.md`).
 - [x] Implement function indexer: collect function-like nodes, assign stable `FuncId=(filePath,startOffset,endOffset)`, and expose lookup by span.
 - [x] Implement statement indexer: per-function linear statement list with stable `StmtId=FuncId+statementIndex` rules (documented in code/tests).
 - [x] Implement callsite indexer: enumerate call expressions per function, assign `CallsiteId` (aligned to `StmtId`), and record callsite spans.
-- [ ] Define per-function IR schema + normalizer + stable IR serialization (unit tests; no builder yet).
+- [x] Define per-function IR schema + normalizer + stable IR serialization (unit tests; no builder yet).
 - [ ] Implement stable IR hashing (hash of normalized IR + analysis config version) and a unit test for stability.
 - [ ] Implement IR builder v1: assignments, returns, and direct calls into IR (unit tests on fixture).
 - [ ] Implement IR builder v2: member reads/writes, optional chaining, and `await` lowering into IR (unit tests).
