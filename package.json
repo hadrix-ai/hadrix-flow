@@ -11,7 +11,7 @@
   "scripts": {
     "dev": "node src/cli.ts",
     "build": "node scripts/build.ts",
-    "test": "node --test",
+    "test": "node --test test/*.test.js",
     "typecheck": "node --check src/cli.ts scripts/build.ts"
   }
 }
