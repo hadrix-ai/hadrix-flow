@@ -1,0 +1,15 @@
+{
+  "name": "hadrix-flow",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Deterministic JS/TS flow-fact generator (infrastructure, not a vulnerability scanner).",
+  "license": "UNLICENSED",
+  "type": "module",
+  "bin": {
+    "hadrix-flow": "src/cli.ts"
+  },
+  "scripts": {
+    "dev": "node src/cli.ts",
+    "build": "node scripts/build.ts"
+  }
+}
