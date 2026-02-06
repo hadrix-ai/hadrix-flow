@@ -30,7 +30,7 @@ Canonical spec: `ARCHITECTURE.md` (+ `specs/mvp.md`).
 - [x] Define per-function IR schema + normalizer + stable IR serialization (unit tests; no builder yet).
 - [x] Implement stable IR hashing (hash of normalized IR + analysis config version) and a unit test for stability.
 - [x] Implement IR builder v1: assignments, returns, and direct calls into IR (unit tests on fixture).
-- [ ] Implement IR builder v2: member reads/writes, optional chaining, and `await` lowering into IR (unit tests).
+- [x] Implement IR builder v2: member reads/writes, optional chaining, and `await` lowering into IR (unit tests).
 - [ ] Implement IR builder v3: ternary + short-circuit lowering into explicit IR constructs (unit tests).
 - [ ] Implement cheap static pass v1: baseline dependency edges for `x=y`, `return y`, and call arguments (unit tests).
 - [ ] Define heap bucketing rules and implement cheap static pass v2: member read/write edges via `HeapId=(allocationSiteId, propertyName|"*")` (unit tests).
