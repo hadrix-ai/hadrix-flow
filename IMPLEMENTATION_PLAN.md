@@ -20,7 +20,7 @@ Canonical spec: `ARCHITECTURE.md` (+ `specs/mvp.md`).
 - [x] Scaffold Node/TS CLI repo: `package.json`, `tsconfig.json`, `src/` skeleton, and a `hadrix-flow --help` CLI stub.
 - [x] Add validation wiring: `npm test` + `npm run typecheck` scripts (choose a test runner) and a single smoke test.
 - [x] Add determinism helpers: stable comparators/sorts, canonical JSON stringify, and a hashing helper (with unit tests).
-- [ ] Define core IDs: `FuncId`, `StmtId`, `CallsiteId`, `VarId`, `HeapId` with deterministic parse/stringify/compare (with unit tests).
+- [x] Define core IDs: `FuncId`, `StmtId`, `CallsiteId`, `VarId`, `HeapId` with deterministic parse/stringify/compare (with unit tests).
 - [ ] Add a tiny TS fixture repo under `test/fixtures/basic/` (own `tsconfig.json`, a few functions/calls; no external deps).
 - [ ] Implement `analyze` command skeleton that loads a TS `Program` and emits an empty-but-valid facts JSONL file (deterministic ordering).
 - [ ] Implement TS project loader: resolve `--repo` and/or `--tsconfig`, normalize to repo-relative file paths, and produce a stable source-file list.
