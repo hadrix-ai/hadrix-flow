@@ -1,4 +1,4 @@
-import { canonicalJsonStringify, stableSort } from "./determinism.ts";
+import { canonicalJsonStringify, hashCanonicalJson, stableSort } from "./determinism.ts";
 import {
   cmpStmtId,
   cmpVarId,
@@ -15,6 +15,11 @@ import type { CallsiteId, FuncId, StmtId, VarId } from "./ids.ts";
 export const FUNC_IR_SCHEMA_VERSION = 1 as const;
 
 export type IrSchemaVersion = typeof FUNC_IR_SCHEMA_VERSION;
+
+// Bump when analysis settings or IR interpretation changes in a way that should
+// invalidate cached downstream artifacts (e.g., summaries).
+// Intentionally independent of package.json version.
+export const ANALYSIS_CONFIG_VERSION = 1 as const;
 
 export type IrRValue =
   | Readonly<{ kind: "var"; id: VarId }>
@@ -486,3 +491,13 @@ export function serializeNormalizedFuncIr(ir: NormalizedFuncIR): string {
   return canonicalJsonStringify(ir);
 }
 
+export function hashNormalizedFuncIr(
+  ir: NormalizedFuncIR,
+  analysisConfigVersion: number = ANALYSIS_CONFIG_VERSION,
+): string {
+  if (!Number.isSafeInteger(analysisConfigVersion) || analysisConfigVersion < 0) {
+    throw new Error(`analysisConfigVersion must be a non-negative safe integer; got ${analysisConfigVersion}`);
+  }
+  // Hash an explicit envelope to make the cache key definition unambiguous and extensible.
+  return hashCanonicalJson({ analysisConfigVersion, ir });
+}
