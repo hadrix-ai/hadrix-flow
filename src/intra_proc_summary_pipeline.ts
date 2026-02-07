@@ -7,6 +7,7 @@ import type { FuncId } from "./ids.ts";
 import { hashNormalizedFuncIr } from "./ir.ts";
 import type { NormalizedFuncIR } from "./ir.ts";
 import { buildFuncIrV3 } from "./ir_builder.ts";
+import type { LlmIntraProcSummaryExtractor } from "./llm_intraproc_extractor.ts";
 import type { IndexedFunction } from "./function_indexer.ts";
 import type { IndexedStatement, StatementIndex } from "./statement_indexer.ts";
 
@@ -14,6 +15,12 @@ export type IntraProcSummaryPipelineOptions = Readonly<{
   cacheRootDir: string;
   bounds?: Partial<FuncSummaryBounds>;
 }>;
+
+export type HybridLlmIntraProcSummaryPipelineOptions = IntraProcSummaryPipelineOptions &
+  Readonly<{
+    extractor: LlmIntraProcSummaryExtractor;
+    maxAttempts?: number;
+  }>;
 
 export type IntraProcSummaryPipelineResult = Readonly<{
   funcId: FuncId;
@@ -39,6 +46,39 @@ function cheapEdgesToSummaryEdges(edges: readonly CheapDepEdge[]): FuncSummaryEd
   return edges.map(cheapEdgeToSummaryEdge);
 }
 
+function extractFuncSummaryWithRetry(
+  ir: NormalizedFuncIR,
+  baselineEdges: readonly FuncSummaryEdge[],
+  opts: HybridLlmIntraProcSummaryPipelineOptions,
+): NormalizedFuncSummary {
+  const maxAttempts = opts.maxAttempts ?? 3;
+  if (!Number.isSafeInteger(maxAttempts) || maxAttempts <= 0) {
+    throw new Error(`HybridLlmIntraProcSummaryPipelineOptions.maxAttempts must be a positive safe integer`);
+  }
+
+  let previousError: string | undefined = undefined;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    let raw: unknown;
+    try {
+      raw = opts.extractor.extractFuncSummary({ ir, baselineEdges, attempt, previousError });
+    } catch (err) {
+      previousError = err instanceof Error ? err.message : String(err);
+      continue;
+    }
+
+    try {
+      return normalizeFuncSummary(raw, { ir, baselineEdges, bounds: opts.bounds });
+    } catch (err) {
+      previousError = err instanceof Error ? err.message : String(err);
+      continue;
+    }
+  }
+
+  throw new Error(
+    `Hybrid LLM summary extraction failed after ${maxAttempts} attempt(s): extractor=${opts.extractor.kind} lastError=${previousError ?? "<none>"}`,
+  );
+}
+
 export function getOrComputeFuncSummaryCheapPassOnly(
   ir: NormalizedFuncIR,
   opts: IntraProcSummaryPipelineOptions,
@@ -62,6 +102,26 @@ export function getOrComputeFuncSummaryCheapPassOnly(
   return { funcId: ir.funcId, normalizedIrHash, summary: computed, cacheHit: false };
 }
 
+export function getOrComputeFuncSummaryHybridLlm(
+  ir: NormalizedFuncIR,
+  opts: HybridLlmIntraProcSummaryPipelineOptions,
+): IntraProcSummaryPipelineResult {
+  const normalizedIrHash = hashNormalizedFuncIr(ir);
+
+  const baseline = runCheapStaticPassV2(ir);
+  const baselineEdges = cheapEdgesToSummaryEdges(baseline.edges);
+
+  const cached = readFuncSummaryFromCache(opts.cacheRootDir, normalizedIrHash);
+  if (cached) {
+    const summary = normalizeFuncSummary(cached, { ir, baselineEdges, bounds: opts.bounds });
+    return { funcId: ir.funcId, normalizedIrHash, summary, cacheHit: true };
+  }
+
+  const summary = extractFuncSummaryWithRetry(ir, baselineEdges, opts);
+  writeFuncSummaryToCache(opts.cacheRootDir, normalizedIrHash, summary);
+  return { funcId: ir.funcId, normalizedIrHash, summary, cacheHit: false };
+}
+
 export function getOrComputeIndexedFuncSummaryCheapPassOnly(
   func: IndexedFunction,
   statements: readonly IndexedStatement[],
@@ -69,6 +129,15 @@ export function getOrComputeIndexedFuncSummaryCheapPassOnly(
 ): IntraProcSummaryPipelineResult {
   const ir = buildFuncIrV3(func, statements);
   return getOrComputeFuncSummaryCheapPassOnly(ir, opts);
+}
+
+export function getOrComputeIndexedFuncSummaryHybridLlm(
+  func: IndexedFunction,
+  statements: readonly IndexedStatement[],
+  opts: HybridLlmIntraProcSummaryPipelineOptions,
+): IntraProcSummaryPipelineResult {
+  const ir = buildFuncIrV3(func, statements);
+  return getOrComputeFuncSummaryHybridLlm(ir, opts);
 }
 
 export function runIntraProcSummaryPipelineCheapPassOnly(
@@ -82,3 +151,13 @@ export function runIntraProcSummaryPipelineCheapPassOnly(
   return out;
 }
 
+export function runIntraProcSummaryPipelineHybridLlm(
+  statementIndex: StatementIndex,
+  opts: HybridLlmIntraProcSummaryPipelineOptions,
+): readonly IntraProcSummaryPipelineResult[] {
+  const out: IntraProcSummaryPipelineResult[] = [];
+  for (const entry of statementIndex.perFunction) {
+    out.push(getOrComputeIndexedFuncSummaryHybridLlm(entry.func, entry.statements, opts));
+  }
+  return out;
+}

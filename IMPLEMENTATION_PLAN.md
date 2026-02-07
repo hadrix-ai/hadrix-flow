@@ -49,7 +49,7 @@ Canonical spec: `ARCHITECTURE.md` (+ `specs/mvp.md`).
 - [x] Add determinism regression: run `analyze` twice (warm cache) and assert byte-identical facts output.
 - [x] Add optional `--witness <witness.jsonl>` to emit function-level call-chain witnesses (deterministic ordering).
 - [x] Add optional `--explain <dir>` to emit per-function explain bundles (IR + edges + validation notes; stable filenames).
-- [ ] Add optional hybrid LLM intra-proc extractor interface (behind a flag; schema-validated with retry; mocked in tests; still offline-by-default).
+- [x] Add optional hybrid LLM intra-proc extractor interface (behind a flag; schema-validated with retry; mocked in tests; still offline-by-default).
 
 ## Done Criteria (v0.1)
 - `hadrix-flow analyze` runs on a small TS fixture and emits stable JSONL flow facts.

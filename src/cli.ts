@@ -7,11 +7,13 @@ import { writeCallChainWitnessesJsonlFile } from "./call_chain_witness_jsonl.ts"
 import { writeExplainBundlesDir } from "./explain_bundle.ts";
 import { buildFunctionIndexFromProject } from "./function_indexer.ts";
 import { writeFlowFactsJsonlFile } from "./flow_fact_jsonl.ts";
+import { FUNC_SUMMARY_SCHEMA_VERSION } from "./func_summary.ts";
 import type { FuncId } from "./ids.ts";
-import { getOrComputeFuncSummaryCheapPassOnly } from "./intra_proc_summary_pipeline.ts";
+import { getOrComputeFuncSummaryCheapPassOnly, getOrComputeFuncSummaryHybridLlm } from "./intra_proc_summary_pipeline.ts";
 import { loadJellyCallGraphFromFile } from "./jelly_callgraph.ts";
 import { mapJellyCallEdgesToCallsiteIds } from "./jelly_callsite_mapping.ts";
 import { mapJellyFunctionNodesToFuncIds } from "./jelly_func_mapping.ts";
+import type { LlmIntraProcSummaryExtractor } from "./llm_intraproc_extractor.ts";
 import { runInterprocPropagationV2 } from "./interproc_propagation.ts";
 import { buildFuncIrV3 } from "./ir_builder.ts";
 import { normalizeMappedCallGraph } from "./mapped_callgraph.ts";
@@ -46,6 +48,7 @@ function helpText(version: string): string {
     "      --version  Show version",
     "      --witness  Write function-level call-chain witnesses (JSONL)",
     "      --explain  Write per-function explain bundles (IR + edges + validation notes)",
+    "      --llm-mode Intra-proc extractor mode: off|mock (default: off)",
     "",
   ].join("\n");
 }
@@ -57,6 +60,7 @@ type AnalyzeArgs = Readonly<{
   out?: string;
   witness?: string;
   explain?: string;
+  llmMode?: "off" | "mock";
   help: boolean;
 }>;
 
@@ -68,6 +72,7 @@ function parseAnalyzeArgs(argv: string[]): AnalyzeArgs {
     out?: string;
     witness?: string;
     explain?: string;
+    llmMode?: "off" | "mock";
     help: boolean;
   } = { help: false };
 
@@ -116,6 +121,15 @@ function parseAnalyzeArgs(argv: string[]): AnalyzeArgs {
       i++;
       continue;
     }
+    if (a === "--llm-mode") {
+      const v = takeValue(a, i);
+      if (v !== "off" && v !== "mock") {
+        throw new Error(`--llm-mode must be one of: off, mock`);
+      }
+      args.llmMode = v;
+      i++;
+      continue;
+    }
 
     throw new Error(`Unknown option: ${a}`);
   }
@@ -157,6 +171,8 @@ function cmdAnalyze(argv: string[], version: string): number {
 
     const outAbsPath = resolve(args.out);
     const cacheRootDir = join(dirname(outAbsPath), ".hadrix-flow-cache");
+    const llmMode = args.llmMode ?? "off";
+    const summaryCacheRootDir = llmMode === "off" ? cacheRootDir : join(cacheRootDir, "llm", llmMode);
 
     const project = loadTsProject({ repo: args.repo, tsconfig: args.tsconfig });
     const functionIndex = buildFunctionIndexFromProject(project);
@@ -191,6 +207,15 @@ function cmdAnalyze(argv: string[], version: string): number {
       readonly summary: ReturnType<typeof getOrComputeFuncSummaryCheapPassOnly>["summary"];
     }> = [];
 
+    const mockExtractor: LlmIntraProcSummaryExtractor = {
+      kind: "mock",
+      extractFuncSummary: ({ ir, baselineEdges }) => ({
+        schemaVersion: FUNC_SUMMARY_SCHEMA_VERSION,
+        funcId: ir.funcId,
+        edges: baselineEdges,
+      }),
+    };
+
     for (const funcId of graph.nodes) {
       const func = functionIndex.getById(funcId);
       if (!func) throw new Error(`Missing indexed function for call graph node: ${funcId}`);
@@ -200,7 +225,10 @@ function cmdAnalyze(argv: string[], version: string): number {
       const ir = buildFuncIrV3(func, statements);
       irByFuncId.set(funcId, ir);
 
-      const { summary, normalizedIrHash } = getOrComputeFuncSummaryCheapPassOnly(ir, { cacheRootDir });
+      const { summary, normalizedIrHash } =
+        llmMode === "off"
+          ? getOrComputeFuncSummaryCheapPassOnly(ir, { cacheRootDir: summaryCacheRootDir })
+          : getOrComputeFuncSummaryHybridLlm(ir, { cacheRootDir: summaryCacheRootDir, extractor: mockExtractor });
       summaryByFuncId.set(funcId, summary);
       if (args.explain) explainInputs.push({ funcId, normalizedIrHash, ir, summary });
     }
