@@ -26,8 +26,8 @@ test("buildFunctionIndexFromProject: indexes function-like nodes in fixture and 
   const project = loadTsProject({ tsconfig: tsconfigPath });
   const idx = buildFunctionIndexFromProject(project);
 
-  // a.ts (4) + b.ts (7) + index.ts (1) = 12
-  assert.equal(idx.functions.length, 12);
+  // a.ts (4) + b.ts (11) + index.ts (1) = 16
+  assert.equal(idx.functions.length, 16);
 
   assert.equal(
     isStrictlySortedFuncIds(idx.functions.map((f) => f.id)),
@@ -97,4 +97,3 @@ test("buildFunctionIndex: includes arrow/function-expression/class members; skip
     assert.equal(idx.getBySpan(f.filePath, f.startOffset, f.endOffset), f);
   }
 });
-

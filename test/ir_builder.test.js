@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 
 import ts from "typescript";
 
-import { buildFuncIrV1, buildFuncIrV2 } from "../src/ir_builder.ts";
+import { buildFuncIrV1, buildFuncIrV2, buildFuncIrV3 } from "../src/ir_builder.ts";
 import { createLocalVarId, createParamVarId } from "../src/ids.ts";
 import { buildStatementIndexFromProject } from "../src/statement_indexer.ts";
 import { loadTsProject } from "../src/ts_project.ts";
@@ -181,4 +181,92 @@ test("buildFuncIrV2: lowers optional chaining member reads for optionalFlow()", 
 
   const assign = ir.stmts.find((s) => s.kind === "assign" && s.stmtId === declId);
   assert.equal(assign, undefined);
+});
+
+test("buildFuncIrV3: lowers ternary into a select statement for ternaryFlow()", () => {
+  const stIdx = loadFixtureStatements();
+  const entry = findFuncEntryBySnippet(stIdx, "function ternaryFlow");
+  const declId = findStmtIdByText(entry, "variable", ts.isVariableStatement, "const v = cond ? a : b;");
+  const retId = findStmtIdByText(entry, "return", ts.isReturnStatement, "return v;");
+
+  const ir = buildFuncIrV3(entry.func, entry.statements);
+  assert.deepEqual(ir.params, [createParamVarId(0), createParamVarId(1), createParamVarId(2)]);
+  assert.deepEqual(ir.locals, [createLocalVarId(0)]);
+
+  const sel = ir.stmts.find((s) => s.kind === "select" && s.stmtId === declId);
+  assert.ok(sel);
+  assert.equal(sel.dst, createLocalVarId(0));
+  assert.deepEqual(sel.cond, { kind: "var", id: createParamVarId(0) });
+  assert.deepEqual(sel.thenValue, { kind: "var", id: createParamVarId(1) });
+  assert.deepEqual(sel.elseValue, { kind: "var", id: createParamVarId(2) });
+
+  const ret = ir.stmts.find((s) => s.kind === "return" && s.stmtId === retId);
+  assert.ok(ret);
+  assert.deepEqual(ret.value, { kind: "var", id: createLocalVarId(0) });
+});
+
+test("buildFuncIrV3: lowers && into a short_circuit statement for andFlow()", () => {
+  const stIdx = loadFixtureStatements();
+  const entry = findFuncEntryBySnippet(stIdx, "function andFlow");
+  const declId = findStmtIdByText(entry, "variable", ts.isVariableStatement, "const v = a && b;");
+  const retId = findStmtIdByText(entry, "return", ts.isReturnStatement, "return v;");
+
+  const ir = buildFuncIrV3(entry.func, entry.statements);
+  assert.deepEqual(ir.params, [createParamVarId(0), createParamVarId(1)]);
+  assert.deepEqual(ir.locals, [createLocalVarId(0)]);
+
+  const sc = ir.stmts.find((s) => s.kind === "short_circuit" && s.stmtId === declId);
+  assert.ok(sc);
+  assert.equal(sc.dst, createLocalVarId(0));
+  assert.equal(sc.op, "&&");
+  assert.deepEqual(sc.lhs, { kind: "var", id: createParamVarId(0) });
+  assert.deepEqual(sc.rhs, { kind: "var", id: createParamVarId(1) });
+
+  const ret = ir.stmts.find((s) => s.kind === "return" && s.stmtId === retId);
+  assert.ok(ret);
+  assert.deepEqual(ret.value, { kind: "var", id: createLocalVarId(0) });
+});
+
+test("buildFuncIrV3: lowers || into a short_circuit statement for orFlow()", () => {
+  const stIdx = loadFixtureStatements();
+  const entry = findFuncEntryBySnippet(stIdx, "function orFlow");
+  const declId = findStmtIdByText(entry, "variable", ts.isVariableStatement, "const v = a || b;");
+  const retId = findStmtIdByText(entry, "return", ts.isReturnStatement, "return v;");
+
+  const ir = buildFuncIrV3(entry.func, entry.statements);
+  assert.deepEqual(ir.params, [createParamVarId(0), createParamVarId(1)]);
+  assert.deepEqual(ir.locals, [createLocalVarId(0)]);
+
+  const sc = ir.stmts.find((s) => s.kind === "short_circuit" && s.stmtId === declId);
+  assert.ok(sc);
+  assert.equal(sc.dst, createLocalVarId(0));
+  assert.equal(sc.op, "||");
+  assert.deepEqual(sc.lhs, { kind: "var", id: createParamVarId(0) });
+  assert.deepEqual(sc.rhs, { kind: "var", id: createParamVarId(1) });
+
+  const ret = ir.stmts.find((s) => s.kind === "return" && s.stmtId === retId);
+  assert.ok(ret);
+  assert.deepEqual(ret.value, { kind: "var", id: createLocalVarId(0) });
+});
+
+test("buildFuncIrV3: lowers ?? into a short_circuit statement for nullishFlow()", () => {
+  const stIdx = loadFixtureStatements();
+  const entry = findFuncEntryBySnippet(stIdx, "function nullishFlow");
+  const declId = findStmtIdByText(entry, "variable", ts.isVariableStatement, 'const v = a ?? "default";');
+  const retId = findStmtIdByText(entry, "return", ts.isReturnStatement, "return v;");
+
+  const ir = buildFuncIrV3(entry.func, entry.statements);
+  assert.deepEqual(ir.params, [createParamVarId(0)]);
+  assert.deepEqual(ir.locals, [createLocalVarId(0)]);
+
+  const sc = ir.stmts.find((s) => s.kind === "short_circuit" && s.stmtId === declId);
+  assert.ok(sc);
+  assert.equal(sc.dst, createLocalVarId(0));
+  assert.equal(sc.op, "??");
+  assert.deepEqual(sc.lhs, { kind: "var", id: createParamVarId(0) });
+  assert.deepEqual(sc.rhs, { kind: "lit", value: "default" });
+
+  const ret = ir.stmts.find((s) => s.kind === "return" && s.stmtId === retId);
+  assert.ok(ret);
+  assert.deepEqual(ret.value, { kind: "var", id: createLocalVarId(0) });
 });

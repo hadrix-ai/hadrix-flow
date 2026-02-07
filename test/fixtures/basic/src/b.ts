@@ -39,3 +39,22 @@ export function optionalFlow(obj?: { value: string }): string {
   return v;
 }
 
+export function ternaryFlow(cond: boolean, a: string, b: string): string {
+  const v = cond ? a : b;
+  return v;
+}
+
+export function andFlow(a: string, b: string): string {
+  const v = a && b;
+  return v;
+}
+
+export function orFlow(a: string, b: string): string {
+  const v = a || b;
+  return v;
+}
+
+export function nullishFlow(a?: string): string {
+  const v = a ?? "default";
+  return v;
+}
