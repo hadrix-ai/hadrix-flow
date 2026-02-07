@@ -36,7 +36,7 @@ Canonical spec: `ARCHITECTURE.md` (+ `specs/mvp.md`).
 - [x] Define heap bucketing rules and implement cheap static pass v2: member read/write edges via `HeapId=(allocationSiteId, propertyName|"*")` (unit tests).
 - [x] Define `FuncSummary` schema + validator + normalizer: reject unknown IDs/types, enforce type constraints, apply fanout/edge-count bounds, and require baseline-edge coverage.
 - [x] Implement on-disk summary cache (content-addressed by normalized IR hash + analysis config version) and cache read/write unit tests.
-- [ ] Implement intra-proc summary pipeline (cheap-pass-only) that produces validated summaries and stores/loads them via the cache.
+- [x] Implement intra-proc summary pipeline (cheap-pass-only) that produces validated summaries and stores/loads them via the cache.
 - [ ] Define `FlowFact` JSONL schema + deterministic JSONL writer (stable ordering + canonical serialization) with unit tests.
 - [ ] Add `specs/jelly_callgraph.md` documenting the supported Jelly input format plus a minimal fixture call graph file for tests.
 - [ ] Implement Jelly call graph ingestion + strict validation into an internal call graph model (tests use the fixture).
