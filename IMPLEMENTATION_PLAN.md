@@ -48,7 +48,7 @@ Canonical spec: `ARCHITECTURE.md` (+ `specs/mvp.md`).
 - [x] Wire `hadrix-flow analyze --repo <path> --jelly <file> --out <facts.jsonl>` end-to-end on the fixture repo (facts only; no witnesses yet).
 - [x] Add determinism regression: run `analyze` twice (warm cache) and assert byte-identical facts output.
 - [x] Add optional `--witness <witness.jsonl>` to emit function-level call-chain witnesses (deterministic ordering).
-- [ ] Add optional `--explain <dir>` to emit per-function explain bundles (IR + edges + validation notes; stable filenames).
+- [x] Add optional `--explain <dir>` to emit per-function explain bundles (IR + edges + validation notes; stable filenames).
 - [ ] Add optional hybrid LLM intra-proc extractor interface (behind a flag; schema-validated with retry; mocked in tests; still offline-by-default).
 
 ## Done Criteria (v0.1)

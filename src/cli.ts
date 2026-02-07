@@ -4,6 +4,7 @@ import { dirname, join, resolve } from "node:path";
 
 import { buildCallsiteIndex } from "./callsite_indexer.ts";
 import { writeCallChainWitnessesJsonlFile } from "./call_chain_witness_jsonl.ts";
+import { writeExplainBundlesDir } from "./explain_bundle.ts";
 import { buildFunctionIndexFromProject } from "./function_indexer.ts";
 import { writeFlowFactsJsonlFile } from "./flow_fact_jsonl.ts";
 import type { FuncId } from "./ids.ts";
@@ -43,6 +44,8 @@ function helpText(version: string): string {
     "Options:",
     "  -h, --help     Show help",
     "      --version  Show version",
+    "      --witness  Write function-level call-chain witnesses (JSONL)",
+    "      --explain  Write per-function explain bundles (IR + edges + validation notes)",
     "",
   ].join("\n");
 }
@@ -181,6 +184,12 @@ function cmdAnalyze(argv: string[], version: string): number {
 
     const irByFuncId = new Map<FuncId, ReturnType<typeof buildFuncIrV3>>();
     const summaryByFuncId = new Map<FuncId, ReturnType<typeof getOrComputeFuncSummaryCheapPassOnly>["summary"]>();
+    const explainInputs: Array<{
+      readonly funcId: FuncId;
+      readonly normalizedIrHash: string;
+      readonly ir: ReturnType<typeof buildFuncIrV3>;
+      readonly summary: ReturnType<typeof getOrComputeFuncSummaryCheapPassOnly>["summary"];
+    }> = [];
 
     for (const funcId of graph.nodes) {
       const func = functionIndex.getById(funcId);
@@ -191,13 +200,15 @@ function cmdAnalyze(argv: string[], version: string): number {
       const ir = buildFuncIrV3(func, statements);
       irByFuncId.set(funcId, ir);
 
-      const { summary } = getOrComputeFuncSummaryCheapPassOnly(ir, { cacheRootDir });
+      const { summary, normalizedIrHash } = getOrComputeFuncSummaryCheapPassOnly(ir, { cacheRootDir });
       summaryByFuncId.set(funcId, summary);
+      if (args.explain) explainInputs.push({ funcId, normalizedIrHash, ir, summary });
     }
 
     const { facts } = runInterprocPropagationV2({ graph, irByFuncId, summaryByFuncId });
     writeFlowFactsJsonlFile(outAbsPath, facts);
     if (args.witness) writeCallChainWitnessesJsonlFile(resolve(args.witness), graph.edges);
+    if (args.explain) writeExplainBundlesDir(resolve(args.explain), explainInputs);
     return 0;
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

@@ -39,6 +39,7 @@ test("hadrix-flow analyze wires TS + Jelly + propagation and writes flow facts J
   try {
     const outPath = join(dir, "facts.jsonl");
     const witnessPath = join(dir, "witness.jsonl");
+    const explainDir = join(dir, "explain");
     const res = runCli([
       "analyze",
       "--repo",
@@ -49,6 +50,8 @@ test("hadrix-flow analyze wires TS + Jelly + propagation and writes flow facts J
       outPath,
       "--witness",
       witnessPath,
+      "--explain",
+      explainDir,
     ]);
     assert.equal(res.status, 0);
     assert.equal(res.signal, null);
@@ -72,6 +75,29 @@ test("hadrix-flow analyze wires TS + Jelly + propagation and writes flow facts J
       assert.ok(Array.isArray(obj.steps));
       assert.equal(obj.steps.length, 1);
     }
+
+    const manifestPath = join(explainDir, "manifest.json");
+    const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+    assert.equal(manifest.schemaVersion, 1);
+    assert.equal(manifest.kind, "explain_manifest");
+    assert.ok(Array.isArray(manifest.functions));
+    assert.ok(manifest.functions.length > 0);
+
+    for (const entry of manifest.functions) {
+      assert.equal(typeof entry.funcId, "string");
+      assert.equal(typeof entry.funcIdHash, "string");
+      assert.equal(entry.funcIdHash.length, 64);
+      assert.equal(typeof entry.bundlePath, "string");
+
+      const bundlePath = join(explainDir, entry.bundlePath);
+      const bundle = JSON.parse(readFileSync(bundlePath, "utf8"));
+      assert.equal(bundle.schemaVersion, 1);
+      assert.equal(bundle.kind, "func_explain");
+      assert.equal(bundle.funcId, entry.funcId);
+      assert.equal(bundle.ir.funcId, entry.funcId);
+      assert.equal(bundle.summary.funcId, entry.funcId);
+      assert.ok(Array.isArray(bundle.warnings));
+    }
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -85,6 +111,7 @@ test("hadrix-flow analyze is byte-identical across runs (warm cache)", () => {
   try {
     const outPath = join(dir, "facts.jsonl");
     const witnessPath = join(dir, "witness.jsonl");
+    const explainDir = join(dir, "explain");
 
     const res1 = runCli([
       "analyze",
@@ -96,6 +123,8 @@ test("hadrix-flow analyze is byte-identical across runs (warm cache)", () => {
       outPath,
       "--witness",
       witnessPath,
+      "--explain",
+      explainDir,
     ]);
     assert.equal(res1.status, 0);
     assert.equal(res1.signal, null);
@@ -107,6 +136,17 @@ test("hadrix-flow analyze is byte-identical across runs (warm cache)", () => {
     const wit1 = readFileSync(witnessPath);
     assert.notEqual(wit1.byteLength, 0);
 
+    const manifestPath = join(explainDir, "manifest.json");
+    const manifest1 = readFileSync(manifestPath);
+    assert.notEqual(manifest1.byteLength, 0);
+
+    const parsedManifest1 = JSON.parse(manifest1.toString("utf8"));
+    const bundleBuffers1 = new Map();
+    for (const entry of parsedManifest1.functions) {
+      const p = join(explainDir, entry.bundlePath);
+      bundleBuffers1.set(entry.bundlePath, readFileSync(p));
+    }
+
     const res2 = runCli([
       "analyze",
       "--repo",
@@ -117,6 +157,8 @@ test("hadrix-flow analyze is byte-identical across runs (warm cache)", () => {
       outPath,
       "--witness",
       witnessPath,
+      "--explain",
+      explainDir,
     ]);
     assert.equal(res2.status, 0);
     assert.equal(res2.signal, null);
@@ -127,6 +169,18 @@ test("hadrix-flow analyze is byte-identical across runs (warm cache)", () => {
 
     const wit2 = readFileSync(witnessPath);
     assert.equal(Buffer.compare(wit1, wit2), 0);
+
+    const manifest2 = readFileSync(manifestPath);
+    assert.equal(Buffer.compare(manifest1, manifest2), 0);
+
+    const parsedManifest2 = JSON.parse(manifest2.toString("utf8"));
+    for (const entry of parsedManifest2.functions) {
+      const p = join(explainDir, entry.bundlePath);
+      const b2 = readFileSync(p);
+      const b1 = bundleBuffers1.get(entry.bundlePath);
+      assert.ok(b1, `Missing prior bundle for ${entry.bundlePath}`);
+      assert.equal(Buffer.compare(b1, b2), 0);
+    }
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
