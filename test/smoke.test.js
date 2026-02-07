@@ -54,3 +54,31 @@ test("hadrix-flow analyze wires TS + Jelly + propagation and writes flow facts J
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("hadrix-flow analyze is byte-identical across runs (warm cache)", () => {
+  const fixtureDir = join(projectRoot, "test", "fixtures", "basic");
+  const jellyPath = join(fixtureDir, "jelly_callgraph.json");
+
+  const dir = mkdtempSync(join(tmpdir(), "hadrix-flow-"));
+  try {
+    const outPath = join(dir, "facts.jsonl");
+
+    const res1 = runCli(["analyze", "--repo", fixtureDir, "--jelly", jellyPath, "--out", outPath]);
+    assert.equal(res1.status, 0);
+    assert.equal(res1.signal, null);
+    assert.equal(res1.stderr, "");
+
+    const out1 = readFileSync(outPath);
+    assert.notEqual(out1.byteLength, 0);
+
+    const res2 = runCli(["analyze", "--repo", fixtureDir, "--jelly", jellyPath, "--out", outPath]);
+    assert.equal(res2.status, 0);
+    assert.equal(res2.signal, null);
+    assert.equal(res2.stderr, "");
+
+    const out2 = readFileSync(outPath);
+    assert.equal(Buffer.compare(out1, out2), 0);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
