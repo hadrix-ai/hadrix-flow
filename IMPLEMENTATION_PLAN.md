@@ -41,7 +41,7 @@ Canonical spec: `ARCHITECTURE.md` (+ `specs/mvp.md`).
 - [x] Add `specs/jelly_callgraph.md` documenting the supported Jelly input format plus a minimal fixture call graph file for tests.
 - [x] Implement Jelly call graph ingestion + strict validation into an internal call graph model (tests use the fixture).
 - [x] Implement mapping: Jelly function nodes -> `FuncId` (path normalization + span matching) with clear diagnostics and strict/lenient mode.
-- [ ] Implement mapping: Jelly call edges/callsites -> `CallsiteId` using callsite spans (diagnostics + unit tests).
+- [x] Implement mapping: Jelly call edges/callsites -> `CallsiteId` using callsite spans (diagnostics + unit tests).
 - [ ] Implement deterministic fixpoint driver over the mapped call graph (unit tests with a tiny synthetic graph).
 - [ ] Implement interproc propagation v1: arg->param and return->assignment lifting through callsites; emit param/return/callarg flow facts (unit tests).
 - [ ] Implement interproc propagation v2: heap read/write effect lifting; emit heap-related flow facts (unit tests).
