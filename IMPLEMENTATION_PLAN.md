@@ -50,6 +50,7 @@ Canonical spec: `ARCHITECTURE.md` (+ `specs/mvp.md`).
 - [x] Add optional `--witness <witness.jsonl>` to emit function-level call-chain witnesses (deterministic ordering).
 - [x] Add optional `--explain <dir>` to emit per-function explain bundles (IR + edges + validation notes; stable filenames).
 - [x] Add optional hybrid LLM intra-proc extractor interface (behind a flag; schema-validated with retry; mocked in tests; still offline-by-default).
+- [x] Ignore local npm cache artifacts (`.npm-cache/`) to keep the repo clean after running npm commands.
 
 ## Done Criteria (v0.1)
 - `hadrix-flow analyze` runs on a small TS fixture and emits stable JSONL flow facts.
