@@ -1,7 +1,19 @@
 #!/usr/bin/env node
-import { readFileSync, writeFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { readFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 
+import { buildCallsiteIndex } from "./callsite_indexer.ts";
+import { buildFunctionIndexFromProject } from "./function_indexer.ts";
+import { writeFlowFactsJsonlFile } from "./flow_fact_jsonl.ts";
+import type { FuncId } from "./ids.ts";
+import { getOrComputeFuncSummaryCheapPassOnly } from "./intra_proc_summary_pipeline.ts";
+import { loadJellyCallGraphFromFile } from "./jelly_callgraph.ts";
+import { mapJellyCallEdgesToCallsiteIds } from "./jelly_callsite_mapping.ts";
+import { mapJellyFunctionNodesToFuncIds } from "./jelly_func_mapping.ts";
+import { runInterprocPropagationV2 } from "./interproc_propagation.ts";
+import { buildFuncIrV3 } from "./ir_builder.ts";
+import { normalizeMappedCallGraph } from "./mapped_callgraph.ts";
+import { buildStatementIndex } from "./statement_indexer.ts";
 import { loadTsProject } from "./ts_project.ts";
 
 function getVersion(): string {
@@ -18,14 +30,14 @@ function getVersion(): string {
 
 function helpText(version: string): string {
   return [
-    `Hadrix Flow v${version} (CLI stub)`,
+    `Hadrix Flow v${version}`,
     "Deterministic JS/TS flow-fact generator (infrastructure, not a vulnerability scanner).",
     "",
     "Usage:",
-    "  hadrix-flow analyze (--repo <path> | --tsconfig <file>) --out <facts.jsonl> [--jelly <file>] [--witness <witness.jsonl>] [--explain <dir>]",
+    "  hadrix-flow analyze (--repo <path> | --tsconfig <file>) --jelly <file> --out <facts.jsonl> [--witness <witness.jsonl>] [--explain <dir>]",
     "",
     "Commands:",
-    "  analyze    Generate flow facts (skeleton; emits empty facts for now)",
+    "  analyze    Generate flow facts",
     "",
     "Options:",
     "  -h, --help     Show help",
@@ -134,20 +146,62 @@ function cmdAnalyze(argv: string[], version: string): number {
   }
 
   try {
+    if (!args.jelly) {
+      process.stderr.write("hadrix-flow analyze: missing required --jelly <file>\n");
+      return 1;
+    }
+
+    const outAbsPath = resolve(args.out);
+    const cacheRootDir = join(dirname(outAbsPath), ".hadrix-flow-cache");
+
     const project = loadTsProject({ repo: args.repo, tsconfig: args.tsconfig });
-    const program = project.program;
-    // Force the program to realize sources and types.
-    void program.getSourceFiles();
-    void program.getTypeChecker();
+    const functionIndex = buildFunctionIndexFromProject(project);
+    const statementIndex = buildStatementIndex(functionIndex);
+    const callsiteIndex = buildCallsiteIndex(statementIndex);
+
+    const jelly = loadJellyCallGraphFromFile(resolve(args.jelly));
+    const { nodeIdToFuncId } = mapJellyFunctionNodesToFuncIds(jelly, functionIndex, { mode: "strict" });
+    const { callsiteIdByEdgeIndex } = mapJellyCallEdgesToCallsiteIds(jelly, callsiteIndex, {
+      mode: "strict",
+      nodeIdToFuncId,
+    });
+
+    const nodes: FuncId[] = Array.from(new Set(nodeIdToFuncId.values()));
+    const edges = jelly.edges.flatMap((e, i) => {
+      const callsiteId = callsiteIdByEdgeIndex[i];
+      if (!callsiteId) return [];
+      const callerFuncId = nodeIdToFuncId.get(e.callerId);
+      const calleeFuncId = nodeIdToFuncId.get(e.calleeId);
+      if (!callerFuncId || !calleeFuncId) return [];
+      return [{ callerFuncId, calleeFuncId, callsiteId }];
+    });
+
+    const graph = normalizeMappedCallGraph({ nodes, edges });
+
+    const irByFuncId = new Map<FuncId, ReturnType<typeof buildFuncIrV3>>();
+    const summaryByFuncId = new Map<FuncId, ReturnType<typeof getOrComputeFuncSummaryCheapPassOnly>["summary"]>();
+
+    for (const funcId of graph.nodes) {
+      const func = functionIndex.getById(funcId);
+      if (!func) throw new Error(`Missing indexed function for call graph node: ${funcId}`);
+      const statements = statementIndex.getByFuncId(funcId);
+      if (!statements) throw new Error(`Missing indexed statements for call graph node: ${funcId}`);
+
+      const ir = buildFuncIrV3(func, statements);
+      irByFuncId.set(funcId, ir);
+
+      const { summary } = getOrComputeFuncSummaryCheapPassOnly(ir, { cacheRootDir });
+      summaryByFuncId.set(funcId, summary);
+    }
+
+    const { facts } = runInterprocPropagationV2({ graph, irByFuncId, summaryByFuncId });
+    writeFlowFactsJsonlFile(outAbsPath, facts);
+    return 0;
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    process.stderr.write(`hadrix-flow analyze: failed to load TS project\n${msg}\n`);
+    process.stderr.write(`hadrix-flow analyze: ${msg}\n`);
     return 1;
   }
-
-  // Placeholder: write an empty JSONL file (no facts) deterministically.
-  writeFileSync(resolve(args.out), "", "utf8");
-  return 0;
 }
 
 function main(argv: string[]): number {

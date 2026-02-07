@@ -27,24 +27,29 @@ test("hadrix-flow --help prints usage and exits 0", () => {
   assert.equal(res.stderr, "");
 
   const [firstLine] = res.stdout.split("\n");
-  assert.equal(firstLine, `Hadrix Flow v${pkg.version} (CLI stub)`);
+  assert.equal(firstLine, `Hadrix Flow v${pkg.version}`);
   assert.match(res.stdout, /Usage:\n\s+hadrix-flow analyze\b/);
 });
 
-test("hadrix-flow analyze loads a TS program and writes an empty facts JSONL file", () => {
+test("hadrix-flow analyze wires TS + Jelly + propagation and writes flow facts JSONL", () => {
   const fixtureDir = join(projectRoot, "test", "fixtures", "basic");
-  const tsconfigPath = join(fixtureDir, "tsconfig.json");
+  const jellyPath = join(fixtureDir, "jelly_callgraph.json");
 
   const dir = mkdtempSync(join(tmpdir(), "hadrix-flow-"));
   try {
     const outPath = join(dir, "facts.jsonl");
-    const res = runCli(["analyze", "--tsconfig", tsconfigPath, "--out", outPath]);
+    const res = runCli(["analyze", "--repo", fixtureDir, "--jelly", jellyPath, "--out", outPath]);
     assert.equal(res.status, 0);
     assert.equal(res.signal, null);
     assert.equal(res.stderr, "");
 
     const out = readFileSync(outPath, "utf8");
-    assert.equal(out, "");
+    assert.notEqual(out, "");
+    // Basic JSONL sanity: parse each line as JSON.
+    for (const line of out.split("\n")) {
+      if (line.length === 0) continue;
+      assert.doesNotThrow(() => JSON.parse(line));
+    }
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
