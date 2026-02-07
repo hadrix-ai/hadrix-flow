@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
 import { buildCallsiteIndex } from "./callsite_indexer.ts";
+import { writeCallChainWitnessesJsonlFile } from "./call_chain_witness_jsonl.ts";
 import { buildFunctionIndexFromProject } from "./function_indexer.ts";
 import { writeFlowFactsJsonlFile } from "./flow_fact_jsonl.ts";
 import type { FuncId } from "./ids.ts";
@@ -196,6 +197,7 @@ function cmdAnalyze(argv: string[], version: string): number {
 
     const { facts } = runInterprocPropagationV2({ graph, irByFuncId, summaryByFuncId });
     writeFlowFactsJsonlFile(outAbsPath, facts);
+    if (args.witness) writeCallChainWitnessesJsonlFile(resolve(args.witness), graph.edges);
     return 0;
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
