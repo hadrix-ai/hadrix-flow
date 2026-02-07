@@ -1,0 +1,100 @@
+{
+  "schemaVersion": 1,
+  "nodes": [
+    {
+      "id": "a_id",
+      "name": "id",
+      "filePath": "src/a.ts",
+      "startOffset": 0,
+      "endOffset": 46
+    },
+    {
+      "id": "a_addPrefix",
+      "name": "addPrefix",
+      "filePath": "src/a.ts",
+      "startOffset": 48,
+      "endOffset": 170
+    },
+    {
+      "id": "a_wrap",
+      "name": "wrap",
+      "filePath": "src/a.ts",
+      "startOffset": 172,
+      "endOffset": 250
+    },
+    {
+      "id": "a_readValue",
+      "name": "readValue",
+      "filePath": "src/a.ts",
+      "startOffset": 252,
+      "endOffset": 333
+    },
+    {
+      "id": "b_pipeline",
+      "name": "pipeline",
+      "filePath": "src/b.ts",
+      "startOffset": 54,
+      "endOffset": 193
+    },
+    {
+      "id": "index_main",
+      "name": "main",
+      "filePath": "src/index.ts",
+      "startOffset": 101,
+      "endOffset": 317
+    }
+  ],
+  "edges": [
+    {
+      "callerId": "b_pipeline",
+      "calleeId": "a_wrap",
+      "callsite": {
+        "filePath": "src/b.ts",
+        "startOffset": 116,
+        "endOffset": 127
+      },
+      "kind": "call"
+    },
+    {
+      "callerId": "b_pipeline",
+      "calleeId": "a_readValue",
+      "callsite": {
+        "filePath": "src/b.ts",
+        "startOffset": 145,
+        "endOffset": 157
+      },
+      "kind": "call"
+    },
+    {
+      "callerId": "b_pipeline",
+      "calleeId": "a_addPrefix",
+      "callsite": {
+        "filePath": "src/b.ts",
+        "startOffset": 168,
+        "endOffset": 190
+      },
+      "kind": "call"
+    },
+    {
+      "callerId": "index_main",
+      "calleeId": "a_id",
+      "callsite": {
+        "filePath": "src/index.ts",
+        "startOffset": 172,
+        "endOffset": 179
+      },
+      "kind": "call"
+    },
+    {
+      "callerId": "index_main",
+      "calleeId": "b_pipeline",
+      "callsite": {
+        "filePath": "src/index.ts",
+        "startOffset": 193,
+        "endOffset": 204
+      },
+      "kind": "call"
+    }
+  ]
+}
+
