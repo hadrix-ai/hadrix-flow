@@ -42,7 +42,7 @@ Canonical spec: `ARCHITECTURE.md` (+ `specs/mvp.md`).
 - [x] Implement Jelly call graph ingestion + strict validation into an internal call graph model (tests use the fixture).
 - [x] Implement mapping: Jelly function nodes -> `FuncId` (path normalization + span matching) with clear diagnostics and strict/lenient mode.
 - [x] Implement mapping: Jelly call edges/callsites -> `CallsiteId` using callsite spans (diagnostics + unit tests).
-- [ ] Implement deterministic fixpoint driver over the mapped call graph (unit tests with a tiny synthetic graph).
+- [x] Implement deterministic fixpoint driver over the mapped call graph (unit tests with a tiny synthetic graph).
 - [ ] Implement interproc propagation v1: arg->param and return->assignment lifting through callsites; emit param/return/callarg flow facts (unit tests).
 - [ ] Implement interproc propagation v2: heap read/write effect lifting; emit heap-related flow facts (unit tests).
 - [ ] Wire `hadrix-flow analyze --repo <path> --jelly <file> --out <facts.jsonl>` end-to-end on the fixture repo (facts only; no witnesses yet).
