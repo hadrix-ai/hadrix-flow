@@ -5,9 +5,9 @@ import { fileURLToPath } from "node:url";
 
 import ts from "typescript";
 
-import { runCheapStaticPassV1 } from "../src/cheap_static_pass.ts";
-import { createFuncId, createLocalVarId, createParamVarId, createStmtId } from "../src/ids.ts";
-import { buildFuncIrV1 } from "../src/ir_builder.ts";
+import { runCheapStaticPassV1, runCheapStaticPassV2 } from "../src/cheap_static_pass.ts";
+import { createFuncId, createHeapId, createLocalVarId, createParamVarId, createStmtId, varIdToParts } from "../src/ids.ts";
+import { buildFuncIrV1, buildFuncIrV2 } from "../src/ir_builder.ts";
 import { normalizeFuncIr } from "../src/ir.ts";
 import { buildStatementIndexFromProject } from "../src/statement_indexer.ts";
 import { loadTsProject } from "../src/ts_project.ts";
@@ -85,3 +85,67 @@ test("runCheapStaticPassV1: collects call argument edges for pipeline()", () => 
   ]);
 });
 
+const SYNTHETIC_HEAP_ANCHOR_BASE = 1_000_000_000;
+const SYNTHETIC_HEAP_ANCHOR_LOCAL_OFFSET = 500_000_000;
+
+function synthAnchor(funcId, id) {
+  const parts = varIdToParts(id);
+  const offset = parts.kind === "p" ? parts.index : SYNTHETIC_HEAP_ANCHOR_LOCAL_OFFSET + parts.index;
+  return createStmtId(funcId, SYNTHETIC_HEAP_ANCHOR_BASE + offset);
+}
+
+test("runCheapStaticPassV2: emits heap_read edge for optionalFlow()", () => {
+  const stIdx = loadFixtureStatements();
+  const entry = findFuncEntryBySnippet(stIdx, "function optionalFlow");
+
+  const ir = buildFuncIrV2(entry.func, entry.statements);
+  const out = runCheapStaticPassV2(ir);
+
+  const anchor = synthAnchor(ir.funcId, createParamVarId(0));
+  const h = createHeapId(anchor, "value");
+
+  assert.deepEqual(out.edges, [
+    { from: { kind: "var", id: createLocalVarId(0) }, to: { kind: "return" } },
+    { from: { kind: "heap_read", id: h }, to: { kind: "var", id: createLocalVarId(0) } },
+  ]);
+});
+
+test("runCheapStaticPassV2: buckets by allocation site and uses * for dynamic keys", () => {
+  const funcId = createFuncId("src/a.ts", 0, 10);
+  const s0 = createStmtId(funcId, 0);
+  const s1 = createStmtId(funcId, 1);
+  const s2 = createStmtId(funcId, 2);
+  const s3 = createStmtId(funcId, 3);
+  const s4 = createStmtId(funcId, 4);
+
+  const p0 = createParamVarId(0);
+  const v0 = createLocalVarId(0);
+  const v1 = createLocalVarId(1);
+  const v2 = createLocalVarId(2);
+
+  const ir = normalizeFuncIr({
+    schemaVersion: 1,
+    funcId,
+    params: [p0],
+    locals: [v0, v1, v2],
+    stmts: [
+      // v0 is treated as a fresh object identity anchored at s0.
+      { kind: "assign", stmtId: s0, dst: v0, src: { kind: "unknown" } },
+      // v1 aliases v0, so it should share the same heap anchor (s0).
+      { kind: "assign", stmtId: s1, dst: v1, src: { kind: "var", id: v0 } },
+      // Dynamic property becomes propertyName="*".
+      { kind: "member_write", stmtId: s2, object: v1, property: { kind: "dynamic" }, value: { kind: "var", id: p0 }, optional: false },
+      { kind: "member_read", stmtId: s3, dst: v2, object: v1, property: { kind: "named", name: "prop" }, optional: false },
+      { kind: "return", stmtId: s4, value: { kind: "var", id: v2 } },
+    ],
+  });
+
+  const out = runCheapStaticPassV2(ir);
+
+  assert.deepEqual(out.edges, [
+    { from: { kind: "var", id: p0 }, to: { kind: "heap_write", id: createHeapId(s0, "*") } },
+    { from: { kind: "var", id: v0 }, to: { kind: "var", id: v1 } },
+    { from: { kind: "var", id: v2 }, to: { kind: "return" } },
+    { from: { kind: "heap_read", id: createHeapId(s0, "prop") }, to: { kind: "var", id: v2 } },
+  ]);
+});
