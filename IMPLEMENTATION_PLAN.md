@@ -34,7 +34,7 @@ Canonical spec: `ARCHITECTURE.md` (+ `specs/mvp.md`).
 - [x] Implement IR builder v3: ternary + short-circuit lowering into explicit IR constructs (unit tests).
 - [x] Implement cheap static pass v1: baseline dependency edges for `x=y`, `return y`, and call arguments (unit tests).
 - [x] Define heap bucketing rules and implement cheap static pass v2: member read/write edges via `HeapId=(allocationSiteId, propertyName|"*")` (unit tests).
-- [ ] Define `FuncSummary` schema + validator + normalizer: reject unknown IDs/types, enforce type constraints, apply fanout/edge-count bounds, and require baseline-edge coverage.
+- [x] Define `FuncSummary` schema + validator + normalizer: reject unknown IDs/types, enforce type constraints, apply fanout/edge-count bounds, and require baseline-edge coverage.
 - [ ] Implement on-disk summary cache (content-addressed by normalized IR hash + analysis config version) and cache read/write unit tests.
 - [ ] Implement intra-proc summary pipeline (cheap-pass-only) that produces validated summaries and stores/loads them via the cache.
 - [ ] Define `FlowFact` JSONL schema + deterministic JSONL writer (stable ordering + canonical serialization) with unit tests.
